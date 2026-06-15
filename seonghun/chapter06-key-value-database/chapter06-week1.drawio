@@ -112,6 +112,33 @@
         <mxCell id="Hp5LlrFYwiOn7ruoBV0X-33" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" value="서버 저장소 관리" vertex="1">
           <mxGeometry height="109" width="109" x="1260" y="342" as="geometry" />
         </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-34" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+          <mxGeometry height="710" width="710" x="59" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-35" parent="1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="330" width="320" x="1030" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-36" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="120" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-37" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="20" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-38" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="224" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-43" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="118" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-44" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="18" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-45" parent="Hp5LlrFYwiOn7ruoBV0X-35" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&amp;nbsp;파티션" vertex="1">
+          <mxGeometry height="80" width="80" x="222" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="Hp5LlrFYwiOn7ruoBV0X-42" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="키 밸류 데이터베이스 시스템" vertex="1">
+          <mxGeometry height="30" width="150" x="1115" y="630" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

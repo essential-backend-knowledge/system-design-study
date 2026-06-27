@@ -24,7 +24,7 @@
 - 마지막 요청 기준 토큰 계산
   - 맵 자료구조 사용
   - 키 : 버킷 의존 인스턴스 아이디
-  - 값 : 마지막 요청 시간
+  - 값 : 마지막 요청 시간, 토큰
   - 기존 마지막 요청 시간 기준 과 현재 시간 계산하여 그 사이 남은 토큰 있으면 허용
 
 - 후자 선택
@@ -38,7 +38,7 @@
 - 최대 토큰 수
 - 주기당 생성할 토큰 수
 
-![[image.png]]
+![rate limiter token bucket script example](../image.png)
 ``` lua
 -- KEYS[1]: 버킷 키 이름 (예: "ratelimit:user123")
 -- ARGV[1]: 버킷의 최대 토큰 용량 (Max Capacity)
@@ -84,4 +84,4 @@ else
 end
 
 ```
-![[image 2.png]]
+![rate limiter architecture diagram](../image%202.png)

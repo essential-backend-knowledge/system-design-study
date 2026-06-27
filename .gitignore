@@ -1,0 +1,14 @@
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Local editor/vault state
+.obsidian/
+**/.obsidian/
+.zennotes/
+**/.zennotes/
+
+# Local backup/temp files
+*.bkp
+*.bak
+*~

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가상 노드(Virtual Node) 작동 원리</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2330;
+    --border: #2d3748;
+    --text: #e6edf3;
+    --muted: #9aa7b8;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #f0883e;
+    --bad: #f85149;
+    --s1: #ff6b6b;
+    --s2: #4ecdc4;
+    --s3: #ffd93d;
+    --s4: #a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", sans-serif;
+    line-height: 1.7;
+    padding: 0 0 80px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  header {
+    text-align: center;
+    padding: 60px 20px 40px;
+    background: radial-gradient(ellipse at top, #1a2332 0%, var(--bg) 70%);
+    border-bottom: 1px solid var(--border);
+  }
+  header .tag {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 4px 14px;
+    margin-bottom: 18px;
+    letter-spacing: 1px;
+  }
+  header h1 { font-size: 34px; margin-bottom: 12px; letter-spacing: -0.5px; }
+  header p { color: var(--muted); font-size: 17px; }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 28px;
+    margin-top: 28px;
+  }
+  h2 {
+    font-size: 23px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 .num {
+    background: var(--accent);
+    color: #04101f;
+    font-size: 16px;
+    font-weight: 800;
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .lead { color: var(--muted); margin-bottom: 22px; font-size: 15.5px; }
+  p { margin-bottom: 14px; }
+  strong { color: #fff; }
+  .hl { color: var(--accent); font-weight: 700; }
+  .hl-good { color: var(--good); font-weight: 700; }
+  .hl-bad { color: var(--bad); font-weight: 700; }
+
+  .analogy {
+    background: linear-gradient(135deg, #1e2a3a, #161b22);
+    border-left: 4px solid var(--warn);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 18px 0;
+  }
+  .analogy .t { color: var(--warn); font-weight: 700; margin-bottom: 6px; font-size: 15px; }
+
+  /* Ring layout */
+  .ring-stage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    justify-content: center;
+  }
+  .ring-box { flex: 1; min-width: 320px; text-align: center; }
+  .ring-box h4 { font-size: 15px; margin-bottom: 4px; color: var(--muted); font-weight: 600; }
+  svg { max-width: 100%; height: auto; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 22px;
+  }
+  button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.active { background: var(--accent); color: #04101f; border-color: var(--accent); }
+
+  .slider-row {
+    display: flex; align-items: center; gap: 14px;
+    justify-content: center; margin-top: 20px; flex-wrap: wrap;
+  }
+  .slider-row label { font-size: 14px; color: var(--muted); }
+  input[type=range] { width: 240px; accent-color: var(--accent); }
+  .vcount { font-weight: 800; color: var(--accent); font-size: 18px; min-width: 34px; display: inline-block; text-align: center; }
+
+  /* Distribution bars */
+  .dist { margin-top: 24px; }
+  .dist .bar-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 60px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .bar-track { background: var(--panel-2); border-radius: 6px; height: 26px; overflow: hidden; }
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width .5s ease;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 12px; font-weight: 700; color: #04101f;
+  }
+  .server-name { font-weight: 700; font-size: 14px; text-align: right; }
+  .pct { font-size: 13px; color: var(--muted); text-align: left; }
+  .fairness {
+    text-align: center; margin-top: 16px; font-size: 15px;
+    padding: 10px; border-radius: 10px; background: var(--panel-2);
+  }
+
+  ul { margin: 0 0 14px 22px; }
+  li { margin-bottom: 8px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14.5px; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td.good { color: var(--good); }
+  td.bad { color: var(--bad); }
+
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 16px; margin-bottom: 18px;
+    background: var(--panel-2); padding: 16px 18px; border-radius: 12px;
+  }
+  .step .n {
+    counter-increment: step;
+    flex-shrink: 0;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: #04101f;
+    display: grid; place-items: center; font-weight: 800; font-size: 15px;
+  }
+  .step .n::before { content: counter(step); }
+  .step .body h5 { font-size: 15px; margin-bottom: 2px; }
+  .step .body p { font-size: 14px; color: var(--muted); margin: 0; }
+
+  .legend { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin: 14px 0; font-size: 13px; }
+  .legend span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .key-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  .takeaway {
+    background: linear-gradient(135deg, #12241a, #161b22);
+    border: 1px solid var(--good);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-top: 28px;
+  }
+  .takeaway h3 { color: var(--good); margin-bottom: 12px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+  .hint { font-size: 13px; color: var(--muted); text-align: center; margin-top: 10px; font-style: italic; }
+
+  /* 3방식 비교 시뮬레이션 */
+  .method { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+  .mhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .method h4 { font-size: 15px; margin-bottom: 3px; }
+  .method .desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .mcount { font-size: 13px; font-weight: 800; white-space: nowrap; padding: 6px 11px; border-radius: 9px; background: var(--panel); border: 1px solid var(--border); text-align: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { font-size: 11px; padding: 4px 7px; border-radius: 6px; color: #04101f; font-weight: 700; border: 2px solid transparent; transition: all .35s ease; }
+  .chip.moved { border-color: #f85149; transform: translateY(-3px); box-shadow: 0 4px 10px rgba(248,81,73,.55); }
+  .simlegend { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tag">SYSTEM DESIGN · CH05 안정 해시</div>
+  <h1>가상 노드는 어떻게 동작할까?</h1>
+  <p>안정 해시의 "쏠림 문제"를 가상 노드가 어떻게 해결하는지 눈으로 확인해봐요</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 0. 큰 그림 -->
+  <section>
+    <h2><span class="num">0</span> 한 문장 요약</h2>
+    <p class="lead">먼저 결론부터 기억하고 시작해요.</p>
+    <div class="analogy">
+      <div class="t">💡 핵심 아이디어</div>
+      <p style="margin:0">서버 하나를 해시 링 위에 <strong>한 점</strong>으로 놓는 대신,
+      <span class="hl">여러 개의 "가짜 점"(가상 노드)으로 쪼개서 링 곳곳에 흩뿌리면</span>
+      데이터가 서버들에게 훨씬 <span class="hl-good">골고루</span> 나뉜다.</p>
+    </div>
+    <p>왜 그게 필요한지, 아래에서 하나씩 볼게요. 👇</p>
+  </section>
+
+  <!-- 1. 안정 해시 복습 -->
+  <section>
+    <h2><span class="num">1</span> 먼저, 안정 해시 링이란?</h2>
+    <p class="lead">가상 노드를 이해하려면 "해시 링"부터 알아야 해요.</p>
+    <p>서버와 데이터(키)를 모두 같은 해시 함수에 넣어서, 그 결과값을
+    <strong>동그란 링(0 → 최대값 → 다시 0)</strong> 위의 한 지점에 배치해요.</p>
+    <div class="analogy">
+      <div class="t">🕐 시계로 비유하면</div>
+      <p style="margin:0">링을 시계라고 생각하세요. 서버 A는 3시, 서버 B는 7시 위치에 붙어 있어요.
+      데이터 키를 링에 놓은 뒤, <strong>시계 방향으로 돌면서 처음 만나는 서버</strong>가 그 데이터를 담당해요.</p>
+    </div>
+    <p>이 방식의 장점은 <span class="hl">서버를 추가/삭제해도 대부분의 키가 그대로 유지된다</span>는 것.
+    (일반 해시 <code>hash % N</code> 방식은 서버 수 N이 바뀌면 거의 모든 키가 재배치돼요.)</p>
+  </section>
+
+  <!-- 2. 문제: 쏠림 -->
+  <section>
+    <h2><span class="num">2</span> 그런데 문제가 있어요: <span style="color:var(--bad)">쏠림</span></h2>
+    <p class="lead">서버를 링 위에 "딱 한 점"씩만 놓으면 생기는 일.</p>
+    <p>해시 함수는 서버를 링 위 <strong>랜덤한 위치</strong>에 떨어뜨려요.
+    운이 나쁘면 서버들이 한쪽에 몰리고, 그 사이 구간이 제각각이 됩니다.</p>
+
+    <div class="ring-box" style="margin-top:10px">
+      <h4>서버 3대 — 각각 링에 딱 1점씩 (한쪽으로 쏠린 예시)</h4>
+      <svg id="badRing" viewBox="0 0 360 360" width="360" height="360"></svg>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:14px">
+      🔴 <strong>S1</strong>이 담당하는 구간(호)이 유독 넓죠? →
+      <span class="hl-bad">S1에 데이터·트래픽이 몰림 = 핫스팟</span>
+    </p>
+
+    <div class="analogy" style="border-left-color:var(--bad)">
+      <div class="t" style="color:var(--bad)">😱 왜 위험할까</div>
+      <p style="margin:0">한 서버에만 부하가 쏠리면 그 서버가 먼저 뻗어요.
+      게다가 서버가 죽거나 추가될 때 <strong>담당 구간 크기가 들쭉날쭉</strong>이라
+      재배치되는 데이터 양도 예측이 안 됩니다.</p>
+    </div>
+  </section>
+
+  <!-- 3. 해결: 가상 노드 인터랙티브 -->
+  <section>
+    <h2><span class="num">3</span> 해결책: 서버 하나를 여러 점으로 쪼개기 🎯</h2>
+    <p class="lead">아래 슬라이더를 움직여서 직접 확인해보세요. 이게 이 페이지의 핵심이에요!</p>
+
+    <p>서버 S1을 링에 <strong>1점</strong>만 놓는 대신,
+    <code>S1#0, S1#1, S1#2 ...</code> 처럼 이름을 바꿔가며 해시해서
+    <span class="hl">여러 점(가상 노드)으로 링 곳곳에 흩뿌려요.</span>
+    이 점들은 전부 <strong>실제로는 같은 서버 S1</strong>을 가리켜요.</p>
+
+    <div class="slider-row">
+      <label>서버당 가상 노드 수:</label>
+      <input type="range" id="vSlider" min="1" max="200" value="1">
+      <span class="vcount" id="vLabel">1</span>
+      <span style="font-size:13px;color:var(--muted)">개</span>
+    </div>
+    <p class="hint">1 → 200으로 올려보세요. 각 서버의 점이 많아져 링에 골고루 박히면서 아래 막대가 평평해지는 걸 보세요.</p>
+
+    <div class="legend" style="margin-top:18px">
+      <span><span class="dot" style="background:var(--s1)"></span> 서버 1</span>
+      <span><span class="dot" style="background:var(--s2)"></span> 서버 2</span>
+      <span><span class="dot" style="background:var(--s3)"></span> 서버 3</span>
+      <span><span class="dot" style="background:var(--s4)"></span> 서버 4</span>
+    </div>
+
+    <div class="ring-box" style="margin-top:6px">
+      <svg id="liveRing" viewBox="0 0 360 360" width="360" height="360"></svg>
+    </div>
+
+    <!-- 분포 막대 -->
+    <div class="dist" id="dist"></div>
+    <div class="fairness" id="fairness"></div>
+  </section>
+
+  <!-- 3.5 노드 추가 시 이사량 비교 -->
+  <section>
+    <h2><span class="num">4</span> 노드를 추가하면 키가 얼마나 이사할까? 🚚</h2>
+    <p class="lead">노드 3대 → 4대로 늘릴 때 세 방식을 나란히 비교해요. 님이 헷갈린 바로 그 지점이에요.</p>
+
+    <div class="simlegend">
+      <span><span class="dot" style="background:var(--s1)"></span> 노드1</span>
+      <span><span class="dot" style="background:var(--s2)"></span> 노드2</span>
+      <span><span class="dot" style="background:var(--s3)"></span> 노드3</span>
+      <span><span class="dot" style="background:var(--s4)"></span> 노드4 (새로 추가)</span>
+      <span>🚚 = 이사한 키</span>
+    </div>
+
+    <div class="controls">
+      <button id="simToggle" class="active">▶ 노드 4대로 추가해보기</button>
+      <button id="simReset">↺ 되돌리기 (3대)</button>
+    </div>
+    <p class="hint" id="simHint">지금은 <b>노드 3대</b> 상태예요. 버튼을 누르면 4대가 되고, <b style="color:#f85149">이사한 키가 빨갛게</b> 튀어나와요. 각 칸의 24개 키가 어느 노드로 가는지 색으로 표시돼요.</p>
+
+    <div id="simGrid"></div>
+
+    <div class="analogy" style="border-left-color:var(--good)">
+      <div class="t" style="color:var(--good)">👀 결과 읽는 법</div>
+      <p style="margin:0"><code>hash % N</code>은 거의 다 이사(빨강 폭탄 💥) — 순진한 방식.
+      <b>해시 슬롯</b>과 <b>안정 해시</b>는 딱 1/4만 이사예요.
+      <span class="hl">슬롯 ≈ 가상 노드</span>라서 이 둘의 결과가 비슷하게 나오는 게 핵심 포인트!</p>
+    </div>
+  </section>
+
+  <!-- 4. 데이터 찾기 흐름 -->
+  <section>
+    <h2><span class="num">5</span> 그래서 데이터는 어떻게 찾아가나요?</h2>
+    <p class="lead">가상 노드가 있어도 "찾는 방법"은 똑같이 단순해요.</p>
+    <div class="steps">
+      <div class="step"><div class="n"></div><div class="body">
+        <h5>키를 해시한다</h5>
+        <p>데이터 키 "user_1234"를 해시 함수에 넣어 링 위 한 지점을 구해요.</p>
+      </div></div>
+      <div class="step"><div class="n"></div><div class="body">
+        <h5>시계 방향으로 돈다</h5>
+        <p>그 지점에서 시계 방향으로 이동하며 처음 만나는 <strong>점(가상 노드)</strong>을 찾아요.</p>
+      </div></div>
+      <div class="step"><div class="n"></div><div class="body">
+        <h5>가상 노드 → 실제 서버로 변환</h5>
+        <p>만난 점이 <code>S3#7</code>이라면? "#7"은 무시하고 <strong>실제 서버 S3</strong>가 담당해요.</p>
+      </div></div>
+    </div>
+    <p>즉, 가상 노드는 <span class="hl">"링 위에서만 존재하는 라벨"</span>일 뿐,
+    실제 서버 대수가 늘어난 게 아니에요. 서버 3대는 그대로 3대예요.</p>
+  </section>
+
+  <!-- 5. 비교표 -->
+  <section>
+    <h2><span class="num">6</span> 정리: 있을 때 vs 없을 때</h2>
+    <table>
+      <thead>
+        <tr><th>항목</th><th>가상 노드 없음 (서버당 1점)</th><th>가상 노드 있음 (서버당 여러 점)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>데이터 분포</td><td class="bad">들쭉날쭉 (쏠림 위험)</td><td class="good">골고루 균등</td></tr>
+        <tr><td>서버 추가/삭제 시</td><td class="bad">재배치량 예측 어려움</td><td class="good">부드럽고 균등하게 이동</td></tr>
+        <tr><td>핫스팟</td><td class="bad">잘 생김</td><td class="good">잘 안 생김</td></tr>
+        <tr><td>메모리·관리 비용</td><td class="good">적음</td><td class="bad">점이 많아질수록 증가</td></tr>
+      </tbody>
+    </table>
+    <div class="analogy">
+      <div class="t">⚖️ 트레이드오프</div>
+      <p style="margin:0">가상 노드가 많을수록 분포는 균등해지지만, 링에서 관리할 점이 많아져
+      <strong>메모리와 탐색 비용</strong>이 늘어요. 그래서 무한정 늘리지 않고
+      실무에선 보통 서버당 <span class="hl">100~200개</span> 수준을 씁니다.</p>
+    </div>
+  </section>
+
+  <!-- takeaway -->
+  <div class="takeaway">
+    <h3>🎁 이것만 기억하세요</h3>
+    <ul style="margin-bottom:0">
+      <li><strong>왜 필요?</strong> — 서버를 링에 1점씩만 놓으면 담당 구간이 들쭉날쭉해서 <span class="hl-bad">쏠림(핫스팟)</span>이 생겨요.</li>
+      <li><strong>무엇?</strong> — 서버 하나를 <span class="hl">여러 개의 가짜 점</span>으로 쪼개 링에 흩뿌린 것.</li>
+      <li><strong>효과?</strong> — 점이 많을수록 구간이 잘게 섞여 데이터가 <span class="hl-good">골고루</span> 분산돼요.</li>
+      <li><strong>주의?</strong> — 점이 많으면 균등해지지만 관리 비용이 늘어요 (보통 100~200개).</li>
+    </ul>
+  </div>
+
+  <footer>
+    가상 노드 작동 원리 · 안정 해시(Consistent Hashing) 스터디 자료<br>
+    슬라이더를 여러 번 움직여보면 감이 확 와요 🙂
+  </footer>
+</div>
+
+<script>
+// ---------- 유틸: 결정적 해시 (문자열 -> 0~1) ----------
+function hash01(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return (h >>> 0) / 4294967295;
+}
+
+const SERVERS = [
+  { name: 'S1', color: 'var(--s1)', hex: '#ff6b6b' },
+  { name: 'S2', color: 'var(--s2)', hex: '#4ecdc4' },
+  { name: 'S3', color: 'var(--s3)', hex: '#ffd93d' },
+  { name: 'S4', color: 'var(--s4)', hex: '#a78bfa' },
+];
+const ACTIVE = SERVERS.slice(0, 4); // 기본 서버 4대
+
+const CX = 180, CY = 180, R = 130;
+function angleToXY(a, r = R) {
+  // a: 0~1, 12시에서 시계방향
+  const rad = (a * 2 * Math.PI) - Math.PI / 2;
+  return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
+}
+
+function ringBase() {
+  return `
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#2d3748" stroke-width="14"/>
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#1c2330" stroke-width="10"/>
+    <text x="${CX}" y="30" fill="#9aa7b8" font-size="11" text-anchor="middle">0 / max</text>
+  `;
+}
+
+function nodeDot(a, hex, r = 7) {
+  const [x, y] = angleToXY(a);
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${hex}" stroke="#0d1117" stroke-width="2"/>`;
+}
+
+// ---------- (2) 쏠린 링: 고정 예시 ----------
+function drawBadRing() {
+  // 일부러 한쪽에 몰리게 배치 (0.05, 0.15, 0.55)
+  const pts = [
+    { a: 0.05, hex: '#ff6b6b', label: 'S1' },
+    { a: 0.15, hex: '#4ecdc4', label: 'S2' },
+    { a: 0.55, hex: '#ffd93d', label: 'S3' },
+  ];
+  let arcs = '';
+  // 각 서버 담당 호: 이전 점 ~ 자기 점 (시계방향으로 들어오는 구간)
+  for (let i = 0; i < pts.length; i++) {
+    const prev = pts[(i - 1 + pts.length) % pts.length].a;
+    const cur = pts[i].a;
+    let mid = (prev + cur) / 2;
+    if (cur < prev) mid = ((prev + cur + 1) / 2) % 1;
+    // 강조: S1 구간 넓음
+  }
+  let dots = '';
+  pts.forEach(p => {
+    dots += nodeDot(p.a, p.hex, 9);
+    const [lx, ly] = angleToXY(p.a, R + 22);
+    dots += `<text x="${lx}" y="${ly+4}" fill="${p.hex}" font-size="14" font-weight="700" text-anchor="middle">${p.label}</text>`;
+  });
+  // S1의 넓은 담당 구간 강조 (S3점 뒤 ~ S1점): 0.55 -> 1 -> 0.05
+  const arc = describeArc(0.55, 1.05, R);
+  const highlight = `<path d="${arc}" fill="none" stroke="#ff6b6b" stroke-width="14" opacity="0.5" stroke-linecap="round"/>`;
+  document.getElementById('badRing').innerHTML =
+    ringBase() + highlight + dots +
+    `<text x="${CX}" y="${CY-6}" fill="#f85149" font-size="15" font-weight="800" text-anchor="middle">S1 담당</text>
+     <text x="${CX}" y="${CY+14}" fill="#f85149" font-size="13" text-anchor="middle">구간이 너무 넓음!</text>`;
+}
+
+function describeArc(a0, a1, r) {
+  // a0->a1 시계방향 호 path
+  const steps = 40;
+  let d = '';
+  for (let i = 0; i <= steps; i++) {
+    const a = (a0 + (a1 - a0) * (i / steps)) % 1;
+    const [x, y] = angleToXY(a, r);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+  }
+  return d;
+}
+
+// ---------- (3) 라이브 링 + 분포 ----------
+function computeNodes(vnodes) {
+  // 각 서버마다 vnodes개의 점 생성
+  let nodes = [];
+  ACTIVE.forEach(s => {
+    for (let i = 0; i < vnodes; i++) {
+      nodes.push({ a: hash01(s.name + '#' + i), server: s });
+    }
+  });
+  nodes.sort((x, y) => x.a - y.a);
+  return nodes;
+}
+
+function drawLiveRing(vnodes) {
+  const nodes = computeNodes(vnodes);
+  let dots = '';
+  const r = vnodes > 100 ? 2 : (vnodes > 60 ? 2.5 : (vnodes > 30 ? 3.5 : (vnodes > 12 ? 5 : 7)));
+  nodes.forEach(n => { dots += nodeDot(n.a, n.server.hex, r); });
+  document.getElementById('liveRing').innerHTML =
+    ringBase() + dots +
+    `<text x="${CX}" y="${CY-4}" fill="#e6edf3" font-size="15" font-weight="800" text-anchor="middle">서버 4대</text>
+     <text x="${CX}" y="${CY+16}" fill="#9aa7b8" font-size="12" text-anchor="middle">× ${vnodes} 점 = ${nodes.length} 가상노드</text>`;
+  return nodes;
+}
+
+function computeDistribution(nodes) {
+  // 각 점이 담당하는 호 길이 = 이전 점 ~ 자기 점
+  const load = {};
+  ACTIVE.forEach(s => load[s.name] = 0);
+  for (let i = 0; i < nodes.length; i++) {
+    const cur = nodes[i].a;
+    const prev = nodes[(i - 1 + nodes.length) % nodes.length].a;
+    let span = cur - prev;
+    if (span <= 0) span += 1;
+    load[nodes[i].server.name] += span;
+  }
+  return load;
+}
+
+function renderDist(nodes) {
+  const load = computeDistribution(nodes);
+  const total = Object.values(load).reduce((a, b) => a + b, 0) || 1;
+  let html = '';
+  ACTIVE.forEach(s => {
+    const pct = (load[s.name] / total) * 100;
+    html += `
+      <div class="bar-row">
+        <div class="server-name" style="color:${s.hex}">${s.name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%; background:${s.hex}">${pct.toFixed(1)}%</div>
+        </div>
+        <div class="pct">이상적:25%</div>
+      </div>`;
+  });
+  document.getElementById('dist').innerHTML = html;
+
+  // 공정성 지표: 최대-최소 편차
+  const pcts = ACTIVE.map(s => (load[s.name] / total) * 100);
+  const spread = Math.max(...pcts) - Math.min(...pcts);
+  let msg, color;
+  if (spread > 25) { msg = `😱 편차 ${spread.toFixed(1)}%p — 매우 불균등! 한 서버에 쏠려요.`; color = 'var(--bad)'; }
+  else if (spread > 12) { msg = `😐 편차 ${spread.toFixed(1)}%p — 아직 고르지 않아요.`; color = 'var(--warn)'; }
+  else if (spread > 5) { msg = `🙂 편차 ${spread.toFixed(1)}%p — 꽤 균등해졌어요.`; color = 'var(--accent)'; }
+  else { msg = `🎉 편차 ${spread.toFixed(1)}%p — 거의 완벽하게 균등!`; color = 'var(--good)'; }
+  const fair = document.getElementById('fairness');
+  fair.innerHTML = msg;
+  fair.style.color = color;
+}
+
+// ---------- 이벤트 ----------
+const slider = document.getElementById('vSlider');
+const vLabel = document.getElementById('vLabel');
+function update() {
+  const v = parseInt(slider.value, 10);
+  vLabel.textContent = v;
+  const nodes = drawLiveRing(v);
+  renderDist(nodes);
+}
+slider.addEventListener('input', update);
+
+// init
+drawBadRing();
+update();
+</script>
+<script>
+// ===== 노드 추가 시 3방식 이사량 비교 =====
+(function () {
+  const HEX = ['#ff6b6b', '#4ecdc4', '#ffd93d', '#a78bfa']; // 노드1~4
+  const NAMES = ['N1', 'N2', 'N3', 'N4'];
+  function h(str) {
+    let x = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; }
+    return x >>> 0;
+  }
+  const KEYS = [];
+  for (let i = 0; i < 24; i++) KEYS.push('key' + i);
+
+  // 방식 1: 순진한 hash % N
+  function mod(key, n) { return h(key) % n; }
+
+  // 방식 2: 해시 슬롯 (48칸 고정, 노드 추가 시 일부 슬롯만 새 노드로)
+  function slot(key, n) {
+    const s = h(key + '#slot') % 48;
+    if (n === 3) return s < 16 ? 0 : (s < 32 ? 1 : 2);
+    // n === 4: N1은 0-11 유지, N2는 16-27, N3는 32-43, 나머지(12-15,28-31,44-47)만 N4로
+    if (s >= 0 && s < 12) return 0;
+    if (s >= 16 && s < 28) return 1;
+    if (s >= 32 && s < 44) return 2;
+    return 3;
+  }
+
+  // 방식 3: 안정 해시 (링 + 가상 노드)
+  function ring(key, n) {
+    const V = 120; // 가상 노드를 넉넉히 둬야 분포가 균등하고 이동량이 25%로 수렴
+    let vs = [];
+    for (let sv = 0; sv < n; sv++)
+      for (let i = 0; i < V; i++)
+        vs.push({ p: (h(NAMES[sv] + '~' + i) % 1000000) / 1000000, s: sv });
+    vs.sort((a, b) => a.p - b.p);
+    const kp = (h(key + '~ring') % 1000000) / 1000000;
+    for (let i = 0; i < vs.length; i++) if (vs[i].p >= kp) return vs[i].s;
+    return vs[0].s;
+  }
+
+  const METHODS = [
+    { id: 'mod', fn: mod, title: '① 순진한 hash % N', desc: 'node = hash(key) % 노드수. 노드수가 바뀌면 나눗셈 결과가 통째로 달라짐.' },
+    { id: 'slot', fn: slot, title: '② 해시 슬롯 (Redis 방식)', desc: '키→슬롯번호는 영구 고정. 새 노드로 일부 슬롯만 이동.' },
+    { id: 'ring', fn: ring, title: '③ 안정 해시 + 가상 노드 (Cassandra 방식)', desc: '링 위 위치는 고정. 새 노드 근처 구간만 이동.' },
+  ];
+
+  // 카드 뼈대 생성
+  const grid = document.getElementById('simGrid');
+  grid.innerHTML = METHODS.map(m => `
+    <div class="method">
+      <div class="mhead">
+        <div><h4>${m.title}</h4><div class="desc">${m.desc}</div></div>
+        <div class="mcount" id="cnt-${m.id}">이사: -</div>
+      </div>
+      <div class="chips" id="chips-${m.id}"></div>
+    </div>`).join('');
+
+  let showAfter = false;
+
+  function render() {
+    const n = showAfter ? 4 : 3;
+    METHODS.forEach(m => {
+      const chipBox = document.getElementById('chips-' + m.id);
+      let movedTotal = 0;
+      chipBox.innerHTML = KEYS.map(k => {
+        const owner = m.fn(k, n);
+        const before = m.fn(k, 3), after = m.fn(k, 4);
+        const willMove = before !== after;
+        if (willMove) movedTotal++;
+        const isMoved = showAfter && willMove;
+        return `<span class="chip${isMoved ? ' moved' : ''}" style="background:${HEX[owner]}">${isMoved ? '🚚' : ''}${k}</span>`;
+      }).join('');
+
+      const cnt = document.getElementById('cnt-' + m.id);
+      if (!showAfter) {
+        cnt.textContent = '3대 (기준)';
+        cnt.style.color = 'var(--muted)';
+      } else {
+        const pct = Math.round(movedTotal / KEYS.length * 100);
+        cnt.textContent = `이사 ${movedTotal}/24 (${pct}%)`;
+        cnt.style.color = pct >= 60 ? 'var(--bad)' : 'var(--good)';
+      }
+    });
+
+    const hint = document.getElementById('simHint');
+    if (showAfter) {
+      hint.innerHTML = '노드 <b>4대</b>로 늘렸어요! <code>hash%N</code>은 빨간 🚚가 잔뜩(대참사), 슬롯·안정해시는 몇 개뿐이죠? <b>이게 핵심 차이예요.</b>';
+    } else {
+      hint.innerHTML = '지금은 <b>노드 3대</b> 상태예요. 버튼을 누르면 4대가 되고, <b style="color:#f85149">이사한 키가 빨갛게</b> 튀어나와요.';
+    }
+    document.getElementById('simToggle').classList.toggle('active', showAfter);
+    document.getElementById('simReset').classList.toggle('active', !showAfter);
+  }
+
+  document.getElementById('simToggle').addEventListener('click', () => { showAfter = true; render(); });
+  document.getElementById('simReset').addEventListener('click', () => { showAfter = false; render(); });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -129,6 +129,11 @@ Strategy 2에 아래 조건을 추가했다.
 - 부하가 가장 균등해짐 (Strategy 1/2/3 중 로드밸런싱 효율 1위)
 - 각 노드가 유지해야 할 정보가 Strategy 1 대비 **1000배 감소**
 
+## 2주차에 보완해야할 점
+- Strategy3을 최종 채택했을 때, 서버별 스펙이 다른 경우 유연한 설계가 불가하다.
+- Stratedy3 + 유연성을 설계한데도 더 좋은 방법이 있을 수 있다.
+- 메타데이터의 트레이드오프를 고려했을때, 가상노드 개수는 어떻게 설정해야하나?
+
 ## 참고 자료
 
 - [Amazon Dynamo 논문 원문 (Cornell CS5414)](https://www.cs.cornell.edu/courses/cs5414/2017fa/papers/dynamo.pdf)
